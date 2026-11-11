@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+<rect width="200" height="200" rx="44" fill="#FFB81C"/>
+<path d="M150 22c4-8 16-6 15 3-1 7-9 11-15 16-6-5-14-9-15-16-1-9 11-11 15-3z" fill="#E8456B"/>
+<rect x="22" y="38" width="156" height="150" rx="26" fill="#0B4FA8"/>
+<rect x="44" y="45" width="112" height="21" rx="5" fill="#0E1A2E"/>
+<text x="100" y="61.5" text-anchor="middle" font-family="Fira Sans Condensed,Arial Narrow,sans-serif" font-weight="800" font-size="17" letter-spacing="2" fill="#FFB81C">ΕΙΡΗΝΗ</text>
+<rect x="34" y="71" width="132" height="83" rx="14" fill="#BFE3FF"/>
+<path d="M34 107 L70 71 H86 L34 123Z" fill="#fff" opacity=".45"/>
+<path d="M66 154c2-16 16-24 34-24s32 8 34 24z" fill="#17171C"/>
+<rect x="92" y="122" width="16" height="12" rx="4" fill="#E9B48F"/>
+<circle cx="78" cy="108" r="6" fill="#E9B48F"/><circle cx="122" cy="108" r="6" fill="#E9B48F"/>
+<circle cx="78.5" cy="112" r="1.8" fill="#fff"/><circle cx="121.5" cy="112" r="1.8" fill="#fff"/>
+<ellipse cx="100" cy="106" rx="22" ry="24" fill="#F3C9A6"/>
+<path d="M78 104c-1-17 9-27 22-27s23 10 22 27c-3-5-4-9-4-12-6 4-30 4-36 0 0 3-1 7-4 12z" fill="#2B1D18"/>
+<path d="M78 100c0-4 1-7 2-9l1 13zM122 100c0-4-1-7-2-9l-1 13z" fill="#6B5A52" opacity=".8"/>
+<circle cx="100" cy="80" r="8.5" fill="#2B1D18"/><path d="M94 85h12" stroke="#17171C" stroke-width="3" stroke-linecap="round"/>
+<g fill="#26334D" stroke="#9AA6B8" stroke-width="1.5"><rect x="83" y="85" width="14" height="8" rx="3"/><rect x="103" y="85" width="14" height="8" rx="3"/></g>
+<path d="M97 89h6" stroke="#9AA6B8" stroke-width="1.5"/>
+<ellipse cx="91" cy="106" rx="2.6" ry="3.2" fill="#2B1D18"/><ellipse cx="109" cy="106" rx="2.6" ry="3.2" fill="#2B1D18"/>
+<circle cx="86" cy="114" r="4" fill="#F28B9B" opacity=".55"/><circle cx="114" cy="114" r="4" fill="#F28B9B" opacity=".55"/>
+<path d="M93 116c4 4 10 4 14 0" stroke="#7A3A2E" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+<ellipse cx="100" cy="150" rx="32" ry="9" fill="none" stroke="#596173" stroke-width="6"/>
+<circle cx="72" cy="148" r="6" fill="#F3C9A6"/><circle cx="128" cy="148" r="6" fill="#F3C9A6"/>
+<rect x="22" y="156" width="156" height="32" rx="0" fill="#0B4FA8"/>
+<circle cx="46" cy="170" r="9" fill="#FFE08A"/><circle cx="154" cy="170" r="9" fill="#FFE08A"/>
+<rect x="72" y="164" width="56" height="4" rx="2" fill="#083B80"/><rect x="72" y="172" width="56" height="4" rx="2" fill="#083B80"/>
+<rect x="32" y="182" width="136" height="10" rx="5" fill="#0E1A2E"/>
+</svg>
