@@ -14,6 +14,7 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
+  if (new URL(req.url).pathname.startsWith("/reset/")) return; // Reset has its own service worker
   if (req.mode === "navigate") {
     e.respondWith(fetch(req).then(r => {
       const copy = r.clone(); caches.open(CACHE).then(c => c.put("index.html", copy)); return r;
