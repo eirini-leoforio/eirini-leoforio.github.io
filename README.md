@@ -16,3 +16,12 @@ Personal training app (core rehab, calisthenics goals, sprint log, water, monthl
 - Open https://eirini-leoforio.github.io/reset/ on the phone, then "Add to Home Screen".
 - Data is stored on the device only; use "Backup speichern" under Goals now and then.
 - Own service worker (`reset/sw.js`, scope `/reset/`); the root `sw.js` ignores `/reset/`.
+
+## Takt (`/takt/`)
+
+Training app made as a gift for a friend: full-body plan (1x gym, 2–3x home), four stages that unlock after about 6 weeks, exercise sketches, weekly check-in with photo and measurements, weight every two weeks, short diary, statistics.
+
+- Open https://eirini-leoforio.github.io/takt/ on the phone, then "Add to Home Screen".
+- Data stays on the device (localStorage, photos in IndexedDB); backup via the gear icon.
+- Own service worker (`takt/sw.js`, scope `/takt/`); the root `sw.js` ignores `/takt/`.
+- Exercises and plans: `takt/data.js`. App logic: `takt/app.js`.

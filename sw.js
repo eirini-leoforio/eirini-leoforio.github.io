@@ -8,13 +8,14 @@ self.addEventListener("install", e => {
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k.startsWith("stasi-d-") && k !== CACHE).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
-  if (new URL(req.url).pathname.startsWith("/reset/")) return; // Reset has its own service worker
+  const path = new URL(req.url).pathname;
+  if (path.startsWith("/reset/") || path.startsWith("/takt/")) return; // Reset and Takt have their own service workers
   if (req.mode === "navigate") {
     e.respondWith(fetch(req).then(r => {
       const copy = r.clone(); caches.open(CACHE).then(c => c.put("index.html", copy)); return r;
