@@ -252,14 +252,15 @@ const CHECKS=[
   {k:"gewicht",n:"Gewicht (optional)",u:"kg",start:null,goal:null,hi:false}
 ];
 const EXTRA=["Air Squats","Ausfallschritte (Lunges)","Walking Lunges","Reverse Lunges","Bulgarian Split Squats","Jump Squats","Step-ups","Pistol Squats (assistiert)","Wall Sit (Sekunden)","Calf Raises","Dips","Pike Push-ups","Diamond Push-ups","Australian Rows","Burpees","Mountain Climbers","Hip Thrusts"];
-const DEFAULTS={morning:["100 Sprünge","Kreatin","Vitamine"],pushDaily:50,pushDays:6,pullWeekly:60,waterL:3,bottle:1500,sprintDays:[2,4],meetDate:"",meetName:"Sprintmeisterschaften"};
+const DEFAULTS={morning:["100 Sprünge"],suppl:["Kreatin *","Omega-3","Kurkuma","Magnesium","Eisen","Vitamin B-Komplex"],pushDaily:50,pushDays:6,pullWeekly:60,waterL:3,bottle:1500,sprintDays:[2,4],meetDate:"",meetName:"Sprintmeisterschaften"};
 
 /* ---------- Zustand & Speicher ---------- */
 const S={settings:{...DEFAULTS},levels:{},days:{},checks:{},mode:"local"};
 let db=null,base=null;
 const LS="reset-app-v1";
 function loadLocal(){try{const j=JSON.parse(localStorage.getItem(LS)||"{}");Object.assign(S.settings,j.settings||{});S.levels=j.levels||{};S.days=j.days||{};S.checks=j.checks||{};}catch(e){}}
-function saveLocal(){try{localStorage.setItem(LS,JSON.stringify({settings:S.settings,levels:S.levels,days:S.days,checks:S.checks}));}catch(e){}}
+let loaded=false;
+function saveLocal(){if(!loaded)return;try{localStorage.setItem(LS,JSON.stringify({settings:S.settings,levels:S.levels,days:S.days,checks:S.checks}));}catch(e){}}
 const timers={};
 function persist(id,data){
   saveLocal();
@@ -269,7 +270,7 @@ function persist(id,data){
 }
 function removeDoc(id){saveLocal();if(db)db.collection(base).doc(id).delete().catch(()=>{});}
 async function init(){
-  loadLocal();
+  loadLocal();loaded=true;
   try{
     if(window.claude&&claude.use){
       const [d,u]=await Promise.all([claude.use("db"),claude.use("user")]);
@@ -294,6 +295,7 @@ async function init(){
       }
     }
   }catch(e){db=null;}
+  migrate();
   render();
 }
 
@@ -310,6 +312,12 @@ const WDL=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Sams
 const fmtTime=s=>Math.floor(s/60)+":"+pad(Math.round(s%60));
 let cur=new Date();cur.setHours(0,0,0,0);
 let tab="heute";
+function migrate(){const st=S.settings;if(st.supplMigrated)return;st.supplMigrated=true;
+  const moved=["Kreatin","Vitamine"];
+  if(Array.isArray(st.morning))st.morning=st.morning.filter(m=>!moved.includes(m));
+  for(const[k,d]of Object.entries(S.days)){if(d.morning&&d.morning.Kreatin){d.suppl=d.suppl||{};d.suppl.Kreatin=true;persist("day-"+k,d);}}
+  persist("settings",st);}
+function supplList(){return (S.settings.suppl||[]).map(x=>{const daily=/\*\s*$/.test(x);return {n:x.replace(/\s*\*\s*$/,"").trim(),daily};}).filter(x=>x.n);}
 function waterMl(d){return d.waterMl!=null?d.waterMl:(d.water||0)*250;}
 function day(k=key(cur)){return S.days[k]||(S.days[k]={core:{},push:0,pull:0,water:0,food:{},sprint:{},note:""});}
 function saveDay(k=key(cur)){persist("day-"+k,day(k));}
@@ -356,6 +364,13 @@ function viewToday(){
   if(mItems.length)h+=`<h2>Morning</h2><div class="tracker" style="padding-top:4px"><div class="spread"><div class="checks">${mItems.map((m,i)=>`<label><input type="checkbox" data-morning="${i}" ${dd.morning&&dd.morning[m]?"checked":""}> ${esc(m)}</label>`).join("")}</div>
     <div class="bigcount">${mDone}<small> / ${mItems.length}</small></div></div>
     ${mDone<mItems.length?`<div><button class="chip" id="morningAll">Alles erledigt</button></div>`:`<div class="muted small">Morgenroutine erledigt.</div>`}</div>`;
+  const sl=supplList(),sd=dd.suppl||{},dailyOpen=sl.filter(x=>x.daily&&!sd[x.n]);
+  h+=`<h2>Supplements</h2><div class="tracker" style="padding-top:4px">
+    <div class="row">${sl.map(x=>`<button class="chip" data-suppl="${esc(x.n)}" aria-pressed="${!!sd[x.n]}">${esc(x.n)}${x.daily?" · täglich":""}</button>`).join("")}
+    ${Object.keys(sd).filter(n=>sd[n]&&!sl.some(x=>x.n===n)).map(n=>`<button class="chip" data-suppl="${esc(n)}" aria-pressed="true">${esc(n)}</button>`).join("")}</div>
+    <div class="muted small">${dailyOpen.length?"Noch offen: "+dailyOpen.map(x=>esc(x.n)).join(", "):"Tägliche Supplements genommen."}</div>
+    <div class="row" style="flex-wrap:nowrap"><input id="supplName" placeholder="Anderes Supplement eintragen" style="flex:1;min-width:0"><button id="supplAdd">Hinzufügen</button></div>
+  </div>`;
   h+=`<div class="daytype"><span class="tag ${sprint?"sprint":""}">${label}</span><span class="muted small">${WDL[cur.getDay()]}</span>${countdown()}</div>
   <p class="muted small" style="margin:8px 0 0">${intro}</p>
   <div class="row" style="margin-top:10px"><button class="chip" id="minimal" aria-pressed="${!!dd.minimal}">Minimum Day</button><button class="chip" id="noBar" aria-pressed="${!!dd.noBar}">Keine Stange</button></div><p class="muted small" style="margin:6px 0 0">${dd.minimal?"Minimum Day: nur Atmung plus zwei Übungen. Zählt voll.":dd.noBar?"Ohne Stange: Hang-Übungen werden durch Bodenübungen ersetzt.":"Wenig Energie? Minimum Day. Keine Stange in der Nähe? Keine Stange."}</p>`;
@@ -440,6 +455,7 @@ function viewWeek(){
     ["Klimmzüge",k=>(S.days[k]?.pull||0)?"y":""],
     ["Sprint",k=>S.days[k]?.sprint?.done?"s":""],
     ["Wasser",k=>{const v=S.days[k]?waterMl(S.days[k]):0;return v>=st.waterL*1000?"y":v?"p":"";}],
+    ["Supplements",k=>{const d=supplList().filter(x=>x.daily);const sd=S.days[k]?.suppl||{};const any=Object.values(sd).some(Boolean);if(!d.length)return any?"y":"";const v=d.filter(x=>sd[x.n]).length;return v>=d.length?"y":any?"p":"";}],
     ["Morgen",k=>{const m=st.morning||[];if(!m.length)return "";const v=m.filter(x=>S.days[k]?.morning?.[x]).length;return v>=m.length?"y":v?"p":"";}],
     ["Essen",k=>{const v=Object.values(S.days[k]?.food||{}).filter(Boolean).length;return v>=3?"y":v?"p":"";}]];
   let h=storageBanner()+`<h2>This week</h2><div style="overflow-x:auto"><table class="week"><thead><tr><th></th>${wk.map(k=>`<th class="${k===tk?"today-col":""}">${WD[fromKey(k).getDay()].toUpperCase()}</th>`).join("")}</tr></thead><tbody>
@@ -550,6 +566,7 @@ function viewGoals(){
   <label>Wettkampfdatum<input type="date" id="g_meetDate" value="${esc(s.meetDate)}"></label>
   <label class="full">Wettkampf<input id="g_meetName" value="${esc(s.meetName)}"></label>
   <label class="full">Morgenroutine (eine Sache pro Zeile)<textarea id="g_morning">${esc((s.morning||[]).join("\n"))}</textarea></label>
+  <label class="full">Supplements (eins pro Zeile, mit * am Ende für täglich)<textarea id="g_suppl" style="min-height:130px">${esc((s.suppl||[]).join("\n"))}</textarea></label>
   <div class="full"><div class="eyebrow" style="margin-bottom:6px">Sprinttage</div><div class="row">${[1,2,3,4,5,6,0].map(d=>`<button type="button" class="chip" data-sday="${d}" aria-pressed="${s.sprintDays.includes(d)}">${WD[d]}</button>`).join("")}</div></div>
   <div class="full"><button class="primary" type="submit">Speichern</button></div></form>
   <h2>Deine Ziele am Stück</h2>
@@ -602,6 +619,8 @@ function bind(){
   document.querySelectorAll("[data-extra]").forEach(b=>b.onclick=()=>{const d=day(),n=b.dataset.extra;d.extra=d.extra||{};d.extra[n]=Math.max(0,(d.extra[n]||0)+Number(b.dataset.n));saveDay();render();});
   document.querySelectorAll("[data-extradel]").forEach(b=>b.onclick=()=>{const d=day();delete d.extra[b.dataset.extradel];saveDay();render();});
   const xa=$("#extraAdd");if(xa)xa.onclick=()=>{const n=$("#extraName").value.trim();if(!n)return;const d=day();d.extra=d.extra||{};if(!(n in d.extra))d.extra[n]=0;saveDay();render();};
+  document.querySelectorAll("[data-suppl]").forEach(b=>b.onclick=()=>{const d=day(),n=b.dataset.suppl;d.suppl=d.suppl||{};d.suppl[n]=!d.suppl[n];if(!d.suppl[n])delete d.suppl[n];saveDay();render();});
+  const sa=$("#supplAdd");if(sa)sa.onclick=()=>{const n=$("#supplName").value.trim();if(!n)return;const st=S.settings;if(!supplList().some(x=>x.n.toLowerCase()===n.toLowerCase())){st.suppl=[...(st.suppl||[]),n];persist("settings",st);}const d=day();d.suppl=d.suppl||{};d.suppl[n]=true;saveDay();toast(n+" eingetragen.");render();};
   const nb=$("#noBar");if(nb)nb.onclick=()=>{const d=day();d.noBar=!d.noBar;saveDay();render();};
   document.querySelectorAll("[data-food]").forEach(c=>c.onchange=()=>{const d=day();d.food[c.dataset.food]=c.checked;saveDay();});
   const sd=$("#sprintDone");if(sd)sd.onchange=()=>{day().sprint.done=sd.checked;saveDay();};
@@ -631,6 +650,7 @@ function bind(){
     document.querySelectorAll("[data-sday]").forEach(b=>b.onclick=()=>{b.setAttribute("aria-pressed",b.getAttribute("aria-pressed")==="true"?"false":"true");});
     gf.onsubmit=e=>{e.preventDefault();const s=S.settings;
       ["pushDaily","pushDays","pullWeekly","waterL","bottle"].forEach(x=>{const v=Number($("#g_"+x).value.replace(",","."));if(v>0)s[x]=v;});
+      s.suppl=$("#g_suppl").value.split("\n").map(x=>x.trim()).filter(Boolean);
       s.morning=$("#g_morning").value.split("\n").map(x=>x.trim()).filter(Boolean);
       s.meetDate=$("#g_meetDate").value;s.meetName=$("#g_meetName").value.trim()||"Wettkampf";
       s.sprintDays=[...document.querySelectorAll("[data-sday]")].filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>Number(b.dataset.sday));
