@@ -252,6 +252,17 @@ const CHECKS=[
   {k:"gewicht",n:"Gewicht (optional)",u:"kg",start:null,goal:null,hi:false}
 ];
 const EXTRA=["Air Squats","Ausfallschritte (Lunges)","Walking Lunges","Reverse Lunges","Bulgarian Split Squats","Jump Squats","Step-ups","Pistol Squats (assistiert)","Wall Sit (Sekunden)","Calf Raises","Dips","Pike Push-ups","Diamond Push-ups","Australian Rows","Burpees","Mountain Climbers","Hip Thrusts"];
+const REC=[
+  {k:"recovery",n:"Erholung",u:"%",hi:true,step:"1"},
+  {k:"hrv",n:"HRV",u:"ms",hi:true,step:"1"},
+  {k:"rhr",n:"Ruhepuls",u:"bpm",hi:false,step:"1"},
+  {k:"resp",n:"Atemfrequenz",u:"/min",hi:false,step:"0.1"},
+  {k:"sleepPerf",n:"Schlafleistung",u:"%",hi:true,step:"1"},
+  {k:"sleepMin",n:"Schlafdauer",u:"h",hi:true,time:true},
+  {k:"wakes",n:"Aufwachereignisse",u:"×",hi:false,step:"1"}];
+const fmtHM=m=>m==null||m===""?"":Math.floor(m/60)+":"+String(Math.round(m%60)).padStart(2,"0");
+function parseHM(v){v=String(v).trim().replace(",",".");if(!v)return null;let m=v.match(/^(\d{1,2})\s*[:h.]\s*(\d{1,2})$/);if(m)return Number(m[1])*60+Number(m[2]);if(/^\d+(\.\d+)?$/.test(v))return Math.round(Number(v)*60);return null;}
+function recFmt(r,v){if(v==null||v==="")return "–";return r.time?fmtHM(v):String(v).replace(".",",");}
 const DEFAULTS={stepsGoal:10000,morning:["100 Sprünge"],suppl:["Kreatin *","Omega-3","Kurkuma","Magnesium","Eisen","Vitamin B-Komplex"],pushDaily:50,pushDays:6,pullWeekly:60,waterL:3,bottle:1500,sprintDays:[2,4],meetDate:"",meetName:"Sprintmeisterschaften"};
 
 /* ---------- Zustand & Speicher ---------- */
@@ -364,6 +375,11 @@ function viewToday(){
   if(mItems.length)h+=`<h2>Morning</h2><div class="tracker" style="padding-top:4px"><div class="spread"><div class="checks">${mItems.map((m,i)=>`<label><input type="checkbox" data-morning="${i}" ${dd.morning&&dd.morning[m]?"checked":""}> ${esc(m)}</label>`).join("")}</div>
     <div class="bigcount">${mDone}<small> / ${mItems.length}</small></div></div>
     ${mDone<mItems.length?`<div><button class="chip" id="morningAll">Alles erledigt</button></div>`:`<div class="muted small">Morgenroutine erledigt.</div>`}</div>`;
+  const rc=dd.rec||{};
+  h+=`<h2>Recovery</h2><div class="tracker" style="padding-top:4px">
+    <div class="muted small">Die Werte aus Whoop. Für einen anderen Tag oben mit ‹ zurückspulen.</div>
+    <div class="form">${REC.map(r=>`<label>${r.n}${r.time?" (h:mm)":" ("+r.u+")"}<input id="rec_${r.k}" data-rec="${r.k}" ${r.time?`inputmode="numeric" placeholder="7:30" value="${fmtHM(rc[r.k])}"`:`inputmode="decimal" value="${rc[r.k]==null?"":String(rc[r.k]).replace(".",",")}"`}></label>`).join("")}</div>
+  </div>`;
   const sl=supplList(),sd=dd.suppl||{},dailyOpen=sl.filter(x=>x.daily&&!sd[x.n]);
   h+=`<h2>Supplements</h2><div class="tracker" style="padding-top:4px">
     <div class="row">${sl.map(x=>`<button class="chip" data-suppl="${esc(x.n)}" aria-pressed="${!!sd[x.n]}">${esc(x.n)}${x.daily?" · täglich":""}</button>`).join("")}
@@ -487,6 +503,7 @@ function viewWeek(){
   // weekly chart
   h+=`<h2>Last 8 weeks</h2>${weekChart(today)}`;
   h+=`<h2>Steps, 14 Tage</h2>${stepsChart(today)}`;
+  h+=recStats(today);
   const ex={};wk.forEach(k=>Object.entries(S.days[k]?.extra||{}).forEach(([n,v])=>ex[n]=(ex[n]||0)+v));
   if(Object.keys(ex).length)h+=`<h2>Weitere Übungen diese Woche</h2>`+Object.entries(ex).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`<div class="spread" style="padding-block:8px;border-bottom:1.5px solid var(--line)"><span class="small" style="font-weight:600">${esc(n)}</span><span class="num" style="font-size:20px;font-weight:700">${v} <span class="muted small">${/Sekunden/.test(n)?"s":"Wdh."}</span></span></div>`).join("");
   // core ladder
@@ -497,6 +514,26 @@ function viewWeek(){
   return h;
 }
 function cleanShare(){let n=0,c=0;Object.values(S.days).forEach(d=>Object.values(d.core||{}).forEach(x=>{if(x.rating&&x.rating!=="")n++;if(x.rating==="sauber")c++;}));return n?Math.round(c/n*100)+" %":"–";}
+function recStats(today){
+  const ds=[...Array(30)].map((_,i)=>{const d=addDays(today,i-29);return {d,r:S.days[key(d)]?.rec||{}};});
+  if(!ds.some(x=>Object.keys(x.r).length))return `<h2>Recovery</h2><p class="muted small">Sobald du morgens deine Whoop-Werte einträgst, siehst du hier Verlauf und Durchschnitt.</p>`;
+  const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  let h=`<h2>Recovery, 30 Tage</h2>`;
+  REC.forEach(r=>{const vals=ds.map(x=>x.r[r.k]);const pts=vals.map((v,i)=>v==null?null:{i,v}).filter(Boolean);if(!pts.length)return;
+    const last=pts[pts.length-1].v,a7=avg(vals.slice(-7).filter(v=>v!=null)),a30=avg(pts.map(p=>p.v));
+    const min=Math.min(...pts.map(p=>p.v)),max=Math.max(...pts.map(p=>p.v)),span=max-min||1,W=320,H=46;
+    const X=i=>4+i*(W-8)/29,Y=v=>H-6-(v-min)/span*(H-12);
+    let path="";pts.forEach((p,j)=>{path+=(j===0||pts[j-1].i!==p.i-1?"M":"L")+X(p.i).toFixed(1)+" "+Y(p.v).toFixed(1)+" ";});
+    const f=v=>v==null?"–":r.time?fmtHM(v):(Math.round(v*10)/10).toString().replace(".",",");
+    let trend="";if(a7!=null&&pts.length>=10){const diff=a7-a30;const good=r.hi?diff>0:diff<0;if(Math.abs(diff)>=(r.time?10:a30*0.03))trend=`<span style="color:${good?"var(--accent)":"var(--warn)"}">${diff>0?"▲":"▼"}</span>`;}
+    h+=`<div style="padding-block:10px;border-bottom:1.5px solid var(--line)"><div class="spread"><span class="small" style="font-weight:600">${r.n}</span><span class="num" style="font-size:20px;font-weight:700">${f(last)} <span class="muted small">${r.time?"h":r.u}</span></span></div>
+      <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${r.n} Verlauf"><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>${pts.map(p=>`<rect x="${X(p.i)-1.5}" y="${Y(p.v)-1.5}" width="3" height="3" fill="var(--accent)"/>`).join("")}</svg>
+      <div class="muted small">Ø 7 Tage ${f(a7)} ${trend} · Ø 30 Tage ${f(a30)}</div></div>`;});
+  const sl=ds.map(x=>x.r.sleepMin).filter(v=>v!=null).slice(-14);
+  if(sl.length>=4){const m=avg(sl),sd=Math.sqrt(avg(sl.map(v=>(v-m)**2)));
+    h+=`<p class="small" style="margin-top:12px">Schlafkonstanz: deine Schlafdauer schwankt in den letzten ${sl.length} erfassten Nächten um etwa ± ${Math.round(sd)} Minuten um ${fmtHM(m)} h.</p>`;}
+  return h;
+}
 function stepsChart(today){
   const ds=[...Array(14)].map((_,i)=>{const d=addDays(today,i-13);return {d,v:S.days[key(d)]?.steps||0};});
   const goal=S.settings.stepsGoal,W=320,H=140,top=10,bot=22,max=Math.max(goal*1.3,...ds.map(x=>x.v)),bw=W/14;
@@ -641,6 +678,10 @@ function bind(){
   const xa=$("#extraAdd");if(xa)xa.onclick=()=>{const n=$("#extraName").value.trim();if(!n)return;const d=day();d.extra=d.extra||{};if(!(n in d.extra))d.extra[n]=0;saveDay();render();};
   document.querySelectorAll("[data-suppl]").forEach(b=>b.onclick=()=>{const d=day(),n=b.dataset.suppl;d.suppl=d.suppl||{};d.suppl[n]=!d.suppl[n];if(!d.suppl[n])delete d.suppl[n];saveDay();render();});
   const sa=$("#supplAdd");if(sa)sa.onclick=()=>{const n=$("#supplName").value.trim();if(!n)return;const st=S.settings;if(!supplList().some(x=>x.n.toLowerCase()===n.toLowerCase())){st.suppl=[...(st.suppl||[]),n];persist("settings",st);}const d=day();d.suppl=d.suppl||{};d.suppl[n]=true;saveDay();toast(n+" eingetragen.");render();};
+  document.querySelectorAll("[data-rec]").forEach(el=>el.onchange=()=>{const d=day(),r=REC.find(x=>x.k===el.dataset.rec);d.rec=d.rec||{};
+    let v=r.time?parseHM(el.value):(el.value.trim()===""?null:Number(el.value.replace(",",".")));
+    if(r.time&&el.value.trim()&&v==null){toast("Schlafdauer bitte als Stunden:Minuten, z. B. 6:45.");return;}
+    if(v==null||isNaN(v))delete d.rec[r.k];else d.rec[r.k]=v;saveDay();if(r.time&&v!=null)el.value=fmtHM(v);});
   const si=$("#stepsIn");if(si)si.onchange=()=>{const d=day(),v=Math.max(0,Math.round(Number(si.value)||0)),g=S.settings.stepsGoal,before=d.steps||0;d.steps=v;saveDay();if(v>=g&&before<g)toast("Schrittziel geschafft.");render();};
   const nb=$("#noBar");if(nb)nb.onclick=()=>{const d=day();d.noBar=!d.noBar;saveDay();render();};
   document.querySelectorAll("[data-food]").forEach(c=>c.onchange=()=>{const d=day();d.food[c.dataset.food]=c.checked;saveDay();});
