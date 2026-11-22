@@ -252,7 +252,7 @@ const CHECKS=[
   {k:"gewicht",n:"Gewicht (optional)",u:"kg",start:null,goal:null,hi:false}
 ];
 const EXTRA=["Air Squats","Ausfallschritte (Lunges)","Walking Lunges","Reverse Lunges","Bulgarian Split Squats","Jump Squats","Step-ups","Pistol Squats (assistiert)","Wall Sit (Sekunden)","Calf Raises","Dips","Pike Push-ups","Diamond Push-ups","Australian Rows","Burpees","Mountain Climbers","Hip Thrusts"];
-const DEFAULTS={morning:["100 Sprünge"],suppl:["Kreatin *","Omega-3","Kurkuma","Magnesium","Eisen","Vitamin B-Komplex"],pushDaily:50,pushDays:6,pullWeekly:60,waterL:3,bottle:1500,sprintDays:[2,4],meetDate:"",meetName:"Sprintmeisterschaften"};
+const DEFAULTS={stepsGoal:10000,morning:["100 Sprünge"],suppl:["Kreatin *","Omega-3","Kurkuma","Magnesium","Eisen","Vitamin B-Komplex"],pushDaily:50,pushDays:6,pullWeekly:60,waterL:3,bottle:1500,sprintDays:[2,4],meetDate:"",meetName:"Sprintmeisterschaften"};
 
 /* ---------- Zustand & Speicher ---------- */
 const S={settings:{...DEFAULTS},levels:{},days:{},checks:{},mode:"local"};
@@ -402,6 +402,13 @@ function viewToday(){
     <datalist id="extraList">${EXTRA.map(x=>`<option value="${esc(x)}"></option>`).join("")}</datalist>
   </div>`;
   // sprint
+  const stWeek=wk.filter(x=>S.days[x]?.steps),stAvg=stWeek.length?Math.round(stWeek.reduce((a,x)=>a+S.days[x].steps,0)/stWeek.length):0;
+  h+=`<h2>Steps</h2><div class="tracker">
+    <div class="spread"><div><div class="eyebrow">Schritte heute</div><div class="bigcount">${(dd.steps||0).toLocaleString("de-DE")}<small> / ${st.stepsGoal.toLocaleString("de-DE")}</small></div></div>
+      <input id="stepsIn" type="number" inputmode="numeric" min="0" step="1" placeholder="Schritte eintragen" value="${dd.steps||""}" style="width:170px"></div>
+    <div class="bar"><b style="width:${Math.min(100,(dd.steps||0)/st.stepsGoal*100)}%"></b></div>
+    <div class="muted small">${stWeek.length?`Ø diese Woche ${stAvg.toLocaleString("de-DE")} Schritte an ${stWeek.length} Tag${stWeek.length>1?"en":""}`:"Abends einfach den Wert vom Armband eintragen."}</div>
+  </div>`;
   h+=`<h2>Sprint</h2><div class="tracker">
     <label class="checks"><span style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="sprintDone" ${dd.sprint.done?"checked":""}> Sprinteinheit heute</span></label>
     <textarea id="sprintText" placeholder="z. B. Einlaufen, 4 × 30 m fliegend, 3 × 60 m Start aus dem Block, 2 × 120 m …">${esc(dd.sprint.text)}</textarea>
@@ -455,6 +462,7 @@ function viewWeek(){
     ["Klimmzüge",k=>(S.days[k]?.pull||0)?"y":""],
     ["Sprint",k=>S.days[k]?.sprint?.done?"s":""],
     ["Wasser",k=>{const v=S.days[k]?waterMl(S.days[k]):0;return v>=st.waterL*1000?"y":v?"p":"";}],
+    ["Schritte",k=>{const v=S.days[k]?.steps||0;return v>=st.stepsGoal?"y":v?"p":"";}],
     ["Supplements",k=>{const d=supplList().filter(x=>x.daily);const sd=S.days[k]?.suppl||{};const any=Object.values(sd).some(Boolean);if(!d.length)return any?"y":"";const v=d.filter(x=>sd[x.n]).length;return v>=d.length?"y":any?"p":"";}],
     ["Morgen",k=>{const m=st.morning||[];if(!m.length)return "";const v=m.filter(x=>S.days[k]?.morning?.[x]).length;return v>=m.length?"y":v?"p":"";}],
     ["Essen",k=>{const v=Object.values(S.days[k]?.food||{}).filter(Boolean).length;return v>=3?"y":v?"p":"";}]];
@@ -478,6 +486,7 @@ function viewWeek(){
    <div><div class="eyebrow">Sauber bewertet</div><div class="bigcount">${cleanShare()}</div></div></div>`;
   // weekly chart
   h+=`<h2>Last 8 weeks</h2>${weekChart(today)}`;
+  h+=`<h2>Steps, 14 Tage</h2>${stepsChart(today)}`;
   const ex={};wk.forEach(k=>Object.entries(S.days[k]?.extra||{}).forEach(([n,v])=>ex[n]=(ex[n]||0)+v));
   if(Object.keys(ex).length)h+=`<h2>Weitere Übungen diese Woche</h2>`+Object.entries(ex).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`<div class="spread" style="padding-block:8px;border-bottom:1.5px solid var(--line)"><span class="small" style="font-weight:600">${esc(n)}</span><span class="num" style="font-size:20px;font-weight:700">${v} <span class="muted small">${/Sekunden/.test(n)?"s":"Wdh."}</span></span></div>`).join("");
   // core ladder
@@ -488,6 +497,16 @@ function viewWeek(){
   return h;
 }
 function cleanShare(){let n=0,c=0;Object.values(S.days).forEach(d=>Object.values(d.core||{}).forEach(x=>{if(x.rating&&x.rating!=="")n++;if(x.rating==="sauber")c++;}));return n?Math.round(c/n*100)+" %":"–";}
+function stepsChart(today){
+  const ds=[...Array(14)].map((_,i)=>{const d=addDays(today,i-13);return {d,v:S.days[key(d)]?.steps||0};});
+  const goal=S.settings.stepsGoal,W=320,H=140,top=10,bot=22,max=Math.max(goal*1.3,...ds.map(x=>x.v)),bw=W/14;
+  const y=v=>top+(H-top-bot)*(1-v/max);
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Schritte der letzten 14 Tage">`;
+  ds.forEach((x,i)=>{const h=(H-top-bot)*x.v/max;s+=`<rect x="${i*bw+2}" y="${H-bot-h}" width="${bw-4}" height="${h}" fill="${x.v>=goal?"var(--accent)":"var(--muted)"}"/>`;
+    if(i%2===1)s+=`<text x="${i*bw+bw/2}" y="${H-7}" text-anchor="middle">${x.d.getDate()}.${x.d.getMonth()+1}.</text>`;});
+  s+=`<line x1="0" x2="${W}" y1="${y(goal)}" y2="${y(goal)}" stroke="var(--ink)" stroke-dasharray="4 3" stroke-width="1"/><text x="2" y="${y(goal)-4}" text-anchor="start">Ziel ${goal.toLocaleString("de-DE")}</text></svg>`;
+  const filled=ds.filter(x=>x.v);return s+`<p class="muted small">${filled.length?"Ø "+Math.round(filled.reduce((a,x)=>a+x.v,0)/filled.length).toLocaleString("de-DE")+" Schritte an "+filled.length+" eingetragenen Tagen":"Noch keine Schritte eingetragen."}</p>`;
+}
 function weekChart(today){
   const weeks=[...Array(8)].map((_,i)=>{const m=addDays(monday(today),-7*(7-i));const ks=weekKeys(m);return {m,push:ks.reduce((a,k)=>a+(S.days[k]?.push||0),0),pull:ks.reduce((a,k)=>a+(S.days[k]?.pull||0),0)};});
   const W=320,H=150,top=12,bot=24,left=4;const maxP=Math.max(300,...weeks.map(w=>w.push));const maxL=Math.max(60,...weeks.map(w=>w.pull));
@@ -560,6 +579,7 @@ function viewGoals(){
   return `<h2>Goals & settings</h2><form class="form" id="goalForm">
   <label>Liegestütze pro Tag<input inputmode="numeric" id="g_pushDaily" value="${s.pushDaily}"></label>
   <label>an Tagen pro Woche<input inputmode="numeric" id="g_pushDays" value="${s.pushDays}"></label>
+  <label>Schritte pro Tag<input inputmode="numeric" id="g_stepsGoal" value="${s.stepsGoal}"></label>
   <label>Klimmzüge pro Woche<input inputmode="numeric" id="g_pullWeekly" value="${s.pullWeekly}"></label>
   <label>Wasser pro Tag (Liter)<input inputmode="decimal" id="g_waterL" value="${String(s.waterL).replace(".",",")}"></label>
   <label>Flaschengröße (ml)<input inputmode="numeric" id="g_bottle" value="${s.bottle}"></label>
@@ -621,6 +641,7 @@ function bind(){
   const xa=$("#extraAdd");if(xa)xa.onclick=()=>{const n=$("#extraName").value.trim();if(!n)return;const d=day();d.extra=d.extra||{};if(!(n in d.extra))d.extra[n]=0;saveDay();render();};
   document.querySelectorAll("[data-suppl]").forEach(b=>b.onclick=()=>{const d=day(),n=b.dataset.suppl;d.suppl=d.suppl||{};d.suppl[n]=!d.suppl[n];if(!d.suppl[n])delete d.suppl[n];saveDay();render();});
   const sa=$("#supplAdd");if(sa)sa.onclick=()=>{const n=$("#supplName").value.trim();if(!n)return;const st=S.settings;if(!supplList().some(x=>x.n.toLowerCase()===n.toLowerCase())){st.suppl=[...(st.suppl||[]),n];persist("settings",st);}const d=day();d.suppl=d.suppl||{};d.suppl[n]=true;saveDay();toast(n+" eingetragen.");render();};
+  const si=$("#stepsIn");if(si)si.onchange=()=>{const d=day(),v=Math.max(0,Math.round(Number(si.value)||0)),g=S.settings.stepsGoal,before=d.steps||0;d.steps=v;saveDay();if(v>=g&&before<g)toast("Schrittziel geschafft.");render();};
   const nb=$("#noBar");if(nb)nb.onclick=()=>{const d=day();d.noBar=!d.noBar;saveDay();render();};
   document.querySelectorAll("[data-food]").forEach(c=>c.onchange=()=>{const d=day();d.food[c.dataset.food]=c.checked;saveDay();});
   const sd=$("#sprintDone");if(sd)sd.onchange=()=>{day().sprint.done=sd.checked;saveDay();};
@@ -649,7 +670,7 @@ function bind(){
   const gf=$("#goalForm");if(gf){
     document.querySelectorAll("[data-sday]").forEach(b=>b.onclick=()=>{b.setAttribute("aria-pressed",b.getAttribute("aria-pressed")==="true"?"false":"true");});
     gf.onsubmit=e=>{e.preventDefault();const s=S.settings;
-      ["pushDaily","pushDays","pullWeekly","waterL","bottle"].forEach(x=>{const v=Number($("#g_"+x).value.replace(",","."));if(v>0)s[x]=v;});
+      ["pushDaily","pushDays","pullWeekly","waterL","bottle","stepsGoal"].forEach(x=>{const v=Number($("#g_"+x).value.replace(",","."));if(v>0)s[x]=v;});
       s.suppl=$("#g_suppl").value.split("\n").map(x=>x.trim()).filter(Boolean);
       s.morning=$("#g_morning").value.split("\n").map(x=>x.trim()).filter(Boolean);
       s.meetDate=$("#g_meetDate").value;s.meetName=$("#g_meetName").value.trim()||"Wettkampf";
