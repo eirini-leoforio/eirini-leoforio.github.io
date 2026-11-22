@@ -251,7 +251,8 @@ const CHECKS=[
   {k:"taille",n:"Taille (schmalste Stelle)",u:"cm",start:null,goal:null,hi:false},
   {k:"gewicht",n:"Gewicht (optional)",u:"kg",start:null,goal:null,hi:false}
 ];
-const DEFAULTS={pushDaily:50,pushDays:6,pullWeekly:60,waterL:3,bottle:1500,sprintDays:[2,4],meetDate:"",meetName:"Sprintmeisterschaften"};
+const EXTRA=["Air Squats","Ausfallschritte (Lunges)","Walking Lunges","Reverse Lunges","Bulgarian Split Squats","Jump Squats","Step-ups","Pistol Squats (assistiert)","Wall Sit (Sekunden)","Calf Raises","Dips","Pike Push-ups","Diamond Push-ups","Australian Rows","Burpees","Mountain Climbers","Hip Thrusts"];
+const DEFAULTS={morning:["100 Sprünge","Kreatin","Vitamine"],pushDaily:50,pushDays:6,pullWeekly:60,waterL:3,bottle:1500,sprintDays:[2,4],meetDate:"",meetName:"Sprintmeisterschaften"};
 
 /* ---------- Zustand & Speicher ---------- */
 const S={settings:{...DEFAULTS},levels:{},days:{},checks:{},mode:"local"};
@@ -351,6 +352,10 @@ function viewToday(){
   const label=sprint?"Sprint Day":cur.getDay()===0?"Easy Day":"Core Day";
   const intro=sprint?"Kurz und aktivierend vor oder nach dem Sprint. Fokus auf Atmung unter Tempo und seitliche Stabilität.":cur.getDay()===0?"Wenig Volumen, viel Qualität. Zwei Übungen reichen heute.":"10 bis 15 Minuten. Bewerte nach jeder Übung, wie die Mittellinie reagiert hat.";
   let h=storageBanner();
+  const mItems=st.morning||[],mDone=mItems.filter(m=>dd.morning&&dd.morning[m]).length;
+  if(mItems.length)h+=`<h2>Morning</h2><div class="tracker" style="padding-top:4px"><div class="spread"><div class="checks">${mItems.map((m,i)=>`<label><input type="checkbox" data-morning="${i}" ${dd.morning&&dd.morning[m]?"checked":""}> ${esc(m)}</label>`).join("")}</div>
+    <div class="bigcount">${mDone}<small> / ${mItems.length}</small></div></div>
+    ${mDone<mItems.length?`<div><button class="chip" id="morningAll">Alles erledigt</button></div>`:`<div class="muted small">Morgenroutine erledigt.</div>`}</div>`;
   h+=`<div class="daytype"><span class="tag ${sprint?"sprint":""}">${label}</span><span class="muted small">${WDL[cur.getDay()]}</span>${countdown()}</div>
   <p class="muted small" style="margin:8px 0 0">${intro}</p>
   <div class="row" style="margin-top:10px"><button class="chip" id="minimal" aria-pressed="${!!dd.minimal}">Minimum Day</button><button class="chip" id="noBar" aria-pressed="${!!dd.noBar}">Keine Stange</button></div><p class="muted small" style="margin:6px 0 0">${dd.minimal?"Minimum Day: nur Atmung plus zwei Übungen. Zählt voll.":dd.noBar?"Ohne Stange: Hang-Übungen werden durch Bodenübungen ersetzt.":"Wenig Energie? Minimum Day. Keine Stange in der Nähe? Keine Stange."}</p>`;
@@ -373,6 +378,13 @@ function viewToday(){
       <div class="row"><button data-add="pull" data-n="-1" aria-label="1 abziehen">−1</button><button data-add="pull" data-n="1">+1</button><button data-add="pull" data-n="3">+3</button><button data-add="pull" data-n="5">+5</button></div></div>
     <div class="bar accent"><b style="width:${Math.min(100,pullWeek/st.pullWeekly*100)}%"></b></div>
     <div class="muted small">Woche: ${pullWeek} von ${st.pullWeekly}</div>
+  </div>
+  <div class="tracker">
+    <div class="eyebrow">Weitere Übungen (optional)</div>
+    ${Object.entries(dd.extra||{}).map(([n,v])=>`<div class="spread"><div style="min-width:0"><div style="font-weight:600">${esc(n)}</div><div class="bigcount" style="font-size:28px">${v}<small> ${/Sekunden/.test(n)?"s":"Wdh."}</small></div></div>
+      <div class="row"><button data-extra="${esc(n)}" data-n="-5" aria-label="5 abziehen">−5</button><button data-extra="${esc(n)}" data-n="5">+5</button><button data-extra="${esc(n)}" data-n="10">+10</button><button data-extra="${esc(n)}" data-n="20">+20</button><button class="ghost" data-extradel="${esc(n)}" aria-label="${esc(n)} entfernen">✕</button></div></div>`).join("")}
+    <div class="row" style="flex-wrap:nowrap"><input id="extraName" list="extraList" placeholder="Übung wählen oder eintippen" style="flex:1;min-width:0"><button id="extraAdd">Hinzufügen</button></div>
+    <datalist id="extraList">${EXTRA.map(x=>`<option value="${esc(x)}"></option>`).join("")}</datalist>
   </div>`;
   // sprint
   h+=`<h2>Sprint</h2><div class="tracker">
@@ -428,6 +440,7 @@ function viewWeek(){
     ["Klimmzüge",k=>(S.days[k]?.pull||0)?"y":""],
     ["Sprint",k=>S.days[k]?.sprint?.done?"s":""],
     ["Wasser",k=>{const v=S.days[k]?waterMl(S.days[k]):0;return v>=st.waterL*1000?"y":v?"p":"";}],
+    ["Morgen",k=>{const m=st.morning||[];if(!m.length)return "";const v=m.filter(x=>S.days[k]?.morning?.[x]).length;return v>=m.length?"y":v?"p":"";}],
     ["Essen",k=>{const v=Object.values(S.days[k]?.food||{}).filter(Boolean).length;return v>=3?"y":v?"p":"";}]];
   let h=storageBanner()+`<h2>This week</h2><div style="overflow-x:auto"><table class="week"><thead><tr><th></th>${wk.map(k=>`<th class="${k===tk?"today-col":""}">${WD[fromKey(k).getDay()].toUpperCase()}</th>`).join("")}</tr></thead><tbody>
   ${rows.map(([n,fn])=>`<tr><td>${n}</td>${wk.map(k=>`<td class="${k===tk?"today-col":""}"><span class="dot ${fn(k)}"></span></td>`).join("")}</tr>`).join("")}
@@ -449,6 +462,8 @@ function viewWeek(){
    <div><div class="eyebrow">Sauber bewertet</div><div class="bigcount">${cleanShare()}</div></div></div>`;
   // weekly chart
   h+=`<h2>Last 8 weeks</h2>${weekChart(today)}`;
+  const ex={};wk.forEach(k=>Object.entries(S.days[k]?.extra||{}).forEach(([n,v])=>ex[n]=(ex[n]||0)+v));
+  if(Object.keys(ex).length)h+=`<h2>Weitere Übungen diese Woche</h2>`+Object.entries(ex).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`<div class="spread" style="padding-block:8px;border-bottom:1.5px solid var(--line)"><span class="small" style="font-weight:600">${esc(n)}</span><span class="num" style="font-size:20px;font-weight:700">${v} <span class="muted small">${/Sekunden/.test(n)?"s":"Wdh."}</span></span></div>`).join("");
   // core ladder
   h+=`<h2>Core levels</h2>`+Object.keys(FAM).map(f=>`<div class="spread" style="padding-block:8px;border-bottom:1px solid var(--line)"><div style="min-width:0"><div class="small" style="font-weight:600">${FAM[f].name}</div><div class="muted small">${esc(FAM[f].levels[lvl(f)].n)}</div></div>${ladder(f,lvl(f))}</div>`).join("");
   // sprint log
@@ -534,6 +549,7 @@ function viewGoals(){
   <label>Flaschengröße (ml)<input inputmode="numeric" id="g_bottle" value="${s.bottle}"></label>
   <label>Wettkampfdatum<input type="date" id="g_meetDate" value="${esc(s.meetDate)}"></label>
   <label class="full">Wettkampf<input id="g_meetName" value="${esc(s.meetName)}"></label>
+  <label class="full">Morgenroutine (eine Sache pro Zeile)<textarea id="g_morning">${esc((s.morning||[]).join("\n"))}</textarea></label>
   <div class="full"><div class="eyebrow" style="margin-bottom:6px">Sprinttage</div><div class="row">${[1,2,3,4,5,6,0].map(d=>`<button type="button" class="chip" data-sday="${d}" aria-pressed="${s.sprintDays.includes(d)}">${WD[d]}</button>`).join("")}</div></div>
   <div class="full"><button class="primary" type="submit">Speichern</button></div></form>
   <h2>Deine Ziele am Stück</h2>
@@ -581,6 +597,11 @@ function bind(){
     if(f==="push"&&d.push>=S.settings.pushDaily&&d.push-Number(b.dataset.n)<S.settings.pushDaily)toast("Tagesziel Liegestütze geschafft.");render();});
   document.querySelectorAll("[data-water]").forEach(b=>b.onclick=()=>{const d=day(),before=waterMl(d),g=S.settings.waterL*1000;d.waterMl=Math.max(0,Math.round(before+Number(b.dataset.water)*S.settings.bottle));saveDay();
     if(d.waterMl>=g&&before<g)toast("Wasserziel geschafft.");render();});
+  document.querySelectorAll("[data-morning]").forEach(c=>c.onchange=()=>{const d=day();d.morning=d.morning||{};d.morning[S.settings.morning[Number(c.dataset.morning)]]=c.checked;saveDay();render();});
+  const ma=$("#morningAll");if(ma)ma.onclick=()=>{const d=day();d.morning=d.morning||{};S.settings.morning.forEach(m=>d.morning[m]=true);saveDay();toast("Guten Morgen. Routine erledigt.");render();};
+  document.querySelectorAll("[data-extra]").forEach(b=>b.onclick=()=>{const d=day(),n=b.dataset.extra;d.extra=d.extra||{};d.extra[n]=Math.max(0,(d.extra[n]||0)+Number(b.dataset.n));saveDay();render();});
+  document.querySelectorAll("[data-extradel]").forEach(b=>b.onclick=()=>{const d=day();delete d.extra[b.dataset.extradel];saveDay();render();});
+  const xa=$("#extraAdd");if(xa)xa.onclick=()=>{const n=$("#extraName").value.trim();if(!n)return;const d=day();d.extra=d.extra||{};if(!(n in d.extra))d.extra[n]=0;saveDay();render();};
   const nb=$("#noBar");if(nb)nb.onclick=()=>{const d=day();d.noBar=!d.noBar;saveDay();render();};
   document.querySelectorAll("[data-food]").forEach(c=>c.onchange=()=>{const d=day();d.food[c.dataset.food]=c.checked;saveDay();});
   const sd=$("#sprintDone");if(sd)sd.onchange=()=>{day().sprint.done=sd.checked;saveDay();};
@@ -610,6 +631,7 @@ function bind(){
     document.querySelectorAll("[data-sday]").forEach(b=>b.onclick=()=>{b.setAttribute("aria-pressed",b.getAttribute("aria-pressed")==="true"?"false":"true");});
     gf.onsubmit=e=>{e.preventDefault();const s=S.settings;
       ["pushDaily","pushDays","pullWeekly","waterL","bottle"].forEach(x=>{const v=Number($("#g_"+x).value.replace(",","."));if(v>0)s[x]=v;});
+      s.morning=$("#g_morning").value.split("\n").map(x=>x.trim()).filter(Boolean);
       s.meetDate=$("#g_meetDate").value;s.meetName=$("#g_meetName").value.trim()||"Wettkampf";
       s.sprintDays=[...document.querySelectorAll("[data-sday]")].filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>Number(b.dataset.sday));
       persist("settings",s);toast("Gespeichert.");render();};
