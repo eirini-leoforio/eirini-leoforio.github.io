@@ -1,5 +1,5 @@
 // Offline support for Reset: the app shell is cached, pages try the network first so updates arrive.
-const CACHE = "reset-v2";
+const CACHE = "reset-v3";
 const SHELL = ["./", "index.html", "manifest.webmanifest",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png", "icons/favicon.png"];
 
