@@ -323,7 +323,8 @@ const WDL=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Sams
 const fmtTime=s=>Math.floor(s/60)+":"+pad(Math.round(s%60));
 let cur=new Date();cur.setHours(0,0,0,0);
 let tab="heute";
-function migrate(){const st=S.settings;if(st.supplMigrated)return;st.supplMigrated=true;
+function fixSleep(){for(const[k,d]of Object.entries(S.days)){const v=d.rec&&d.rec.sleepMin;if(v>1440){const raw=String(Math.round(v/60));const m=raw.match(/^(\d{1,2})(\d{2})$/);if(m&&Number(m[2])<60)d.rec.sleepMin=Number(m[1])*60+Number(m[2]);else delete d.rec.sleepMin;persist("day-"+k,d);}}}
+function migrate(){fixSleep();const st=S.settings;if(st.supplMigrated)return;st.supplMigrated=true;
   const moved=["Kreatin","Vitamine"];
   if(Array.isArray(st.morning))st.morning=st.morning.filter(m=>!moved.includes(m));
   for(const[k,d]of Object.entries(S.days)){if(d.morning&&d.morning.Kreatin){d.suppl=d.suppl||{};d.suppl.Kreatin=true;persist("day-"+k,d);}}
@@ -378,7 +379,7 @@ function viewToday(){
   const rc=dd.rec||{};
   h+=`<h2>Recovery</h2><div class="tracker" style="padding-top:4px">
     <div class="muted small">Die Werte aus Whoop. Für einen anderen Tag oben mit ‹ zurückspulen.</div>
-    <div class="form">${REC.map(r=>`<label>${r.n}${r.time?" (h:mm)":" ("+r.u+")"}<input id="rec_${r.k}" data-rec="${r.k}" ${r.time?`inputmode="numeric" placeholder="7:30" value="${fmtHM(rc[r.k])}"`:`inputmode="decimal" value="${rc[r.k]==null?"":String(rc[r.k]).replace(".",",")}"`}></label>`).join("")}</div>
+    <div class="form">${REC.map(r=>r.time?`<div style="display:grid;gap:4px;font-size:12.5px;color:var(--muted);min-width:0">${r.n}<div style="display:flex;gap:6px;align-items:center"><input id="rec_sleepH" data-sleep="h" type="number" inputmode="numeric" min="0" max="23" placeholder="Std" aria-label="Schlafdauer Stunden" value="${rc[r.k]==null?"":Math.floor(rc[r.k]/60)}"><span>:</span><input id="rec_sleepM" data-sleep="m" type="number" inputmode="numeric" min="0" max="59" placeholder="Min" aria-label="Schlafdauer Minuten" value="${rc[r.k]==null?"":rc[r.k]%60}"></div></div>`:`<label>${r.n} (${r.u})<input id="rec_${r.k}" data-rec="${r.k}" inputmode="decimal" value="${rc[r.k]==null?"":String(rc[r.k]).replace(".",",")}"></label>`).join("")}</div>
   </div>`;
   const sl=supplList(),sd=dd.suppl||{},dailyOpen=sl.filter(x=>x.daily&&!sd[x.n]);
   h+=`<h2>Supplements</h2><div class="tracker" style="padding-top:4px">
@@ -678,6 +679,9 @@ function bind(){
   const xa=$("#extraAdd");if(xa)xa.onclick=()=>{const n=$("#extraName").value.trim();if(!n)return;const d=day();d.extra=d.extra||{};if(!(n in d.extra))d.extra[n]=0;saveDay();render();};
   document.querySelectorAll("[data-suppl]").forEach(b=>b.onclick=()=>{const d=day(),n=b.dataset.suppl;d.suppl=d.suppl||{};d.suppl[n]=!d.suppl[n];if(!d.suppl[n])delete d.suppl[n];saveDay();render();});
   const sa=$("#supplAdd");if(sa)sa.onclick=()=>{const n=$("#supplName").value.trim();if(!n)return;const st=S.settings;if(!supplList().some(x=>x.n.toLowerCase()===n.toLowerCase())){st.suppl=[...(st.suppl||[]),n];persist("settings",st);}const d=day();d.suppl=d.suppl||{};d.suppl[n]=true;saveDay();toast(n+" eingetragen.");render();};
+  document.querySelectorAll("[data-sleep]").forEach(el=>el.onchange=()=>{const d=day();d.rec=d.rec||{};const hv=$("#rec_sleepH").value.trim(),mv=$("#rec_sleepM").value.trim();
+    if(hv===""&&mv===""){delete d.rec.sleepMin;saveDay();return;}
+    const H=Math.max(0,Math.min(23,Math.round(Number(hv)||0))),M=Math.max(0,Math.min(59,Math.round(Number(mv)||0)));d.rec.sleepMin=H*60+M;saveDay();});
   document.querySelectorAll("[data-rec]").forEach(el=>el.onchange=()=>{const d=day(),r=REC.find(x=>x.k===el.dataset.rec);d.rec=d.rec||{};
     let v=r.time?parseHM(el.value):(el.value.trim()===""?null:Number(el.value.replace(",",".")));
     if(r.time&&el.value.trim()&&v==null){toast("Schlafdauer bitte als Stunden:Minuten, z. B. 6:45.");return;}
