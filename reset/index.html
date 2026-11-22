@@ -424,13 +424,12 @@ function viewToday(){
     <div class="spread"><div><div class="eyebrow">Schritte heute</div><div class="bigcount">${(dd.steps||0).toLocaleString("de-DE")}<small> / ${st.stepsGoal.toLocaleString("de-DE")}</small></div></div>
       <input id="stepsIn" type="number" inputmode="numeric" min="0" step="1" placeholder="Schritte eintragen" value="${dd.steps||""}" style="width:170px"></div>
     <div class="bar"><b style="width:${Math.min(100,(dd.steps||0)/st.stepsGoal*100)}%"></b></div>
-    <div class="muted small">${stWeek.length?`Ø diese Woche ${stAvg.toLocaleString("de-DE")} Schritte an ${stWeek.length} Tag${stWeek.length>1?"en":""}`:"Abends einfach den Wert vom Armband eintragen."}</div>
+    <div class="muted small">${stWeek.length?`Ø diese Woche ${stAvg.toLocaleString("de-DE")} Schritte an ${stWeek.length} Tag${stWeek.length>1?"en":""}`:"Wert vom Armband eintragen, gern am nächsten Morgen über ‹ zurück."}</div>
   </div>`;
   h+=`<h2>Sprint</h2><div class="tracker">
     <label class="checks"><span style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="sprintDone" ${dd.sprint.done?"checked":""}> Sprinteinheit heute</span></label>
     <textarea id="sprintText" placeholder="z. B. Einlaufen, 4 × 30 m fliegend, 3 × 60 m Start aus dem Block, 2 × 120 m …">${esc(dd.sprint.text)}</textarea>
-    <div class="form"><label>Beste Zeit / Notiz<input id="sprintBest" value="${esc(dd.sprint.best)}" placeholder="z. B. 60 m 8,4 s"></label>
-    <label>Gefühl<select id="sprintFeel"><option value="">–</option>${[1,2,3,4,5].map(n=>`<option ${dd.sprint.feel==n?"selected":""}>${n}</option>`).join("")}</select></label></div>
+    <label class="muted small" style="display:grid;gap:4px">Beste Zeit (optional, nur wenn gemessen)<input id="sprintBest" value="${esc(dd.sprint.best)}" placeholder="z. B. 60 m 8,4 s"></label>
   </div>`;
   // water + food
   const ml=waterMl(dd),goalMl=st.waterL*1000,nb=Math.max(Math.ceil(goalMl/st.bottle),Math.ceil(ml/st.bottle));
@@ -511,7 +510,7 @@ function viewWeek(){
   h+=`<h2>Core levels</h2>`+Object.keys(FAM).map(f=>`<div class="spread" style="padding-block:8px;border-bottom:1px solid var(--line)"><div style="min-width:0"><div class="small" style="font-weight:600">${FAM[f].name}</div><div class="muted small">${esc(FAM[f].levels[lvl(f)].n)}</div></div>${ladder(f,lvl(f))}</div>`).join("");
   // sprint log
   const sl=all.filter(k=>S.days[k].sprint?.done||S.days[k].sprint?.text).sort().reverse().slice(0,8);
-  h+=`<h2>Sprint log</h2>`+(sl.length?sl.map(k=>{const s=S.days[k].sprint;const d=fromKey(k);return `<div style="padding-block:10px;border-bottom:1px solid var(--line)"><div class="spread"><b class="small">${WD[d.getDay()]}, ${d.getDate()}.${d.getMonth()+1}.</b><span class="muted small">${esc(s.best||"")}${s.feel?" · Gefühl "+s.feel+"/5":""}</span></div><div class="small" style="white-space:pre-wrap">${esc(s.text||"")}</div></div>`;}).join(""):`<p class="muted small">Noch keine Sprinteinheit eingetragen. Trag sie unter „Heute“ ein, dann erscheint sie hier.</p>`);
+  h+=`<h2>Sprint log</h2>`+(sl.length?sl.map(k=>{const s=S.days[k].sprint;const d=fromKey(k);return `<div style="padding-block:10px;border-bottom:1px solid var(--line)"><div class="spread"><b class="small">${WD[d.getDay()]}, ${d.getDate()}.${d.getMonth()+1}.</b><span class="muted small">${esc(s.best||"")}</span></div><div class="small" style="white-space:pre-wrap">${esc(s.text||"")}</div></div>`;}).join(""):`<p class="muted small">Noch keine Sprinteinheit eingetragen. Trag sie unter „Heute“ ein, dann erscheint sie hier.</p>`);
   return h;
 }
 function cleanShare(){let n=0,c=0;Object.values(S.days).forEach(d=>Object.values(d.core||{}).forEach(x=>{if(x.rating&&x.rating!=="")n++;if(x.rating==="sauber")c++;}));return n?Math.round(c/n*100)+" %":"–";}
@@ -690,7 +689,7 @@ function bind(){
   const nb=$("#noBar");if(nb)nb.onclick=()=>{const d=day();d.noBar=!d.noBar;saveDay();render();};
   document.querySelectorAll("[data-food]").forEach(c=>c.onchange=()=>{const d=day();d.food[c.dataset.food]=c.checked;saveDay();});
   const sd=$("#sprintDone");if(sd)sd.onchange=()=>{day().sprint.done=sd.checked;saveDay();};
-  [["#sprintText","text"],["#sprintBest","best"],["#sprintFeel","feel"]].forEach(([s,f])=>{const el=$(s);if(el)el.oninput=()=>{const d=day();d.sprint[f]=el.value;if(f==="text"&&el.value&&!d.sprint.done){d.sprint.done=true;$("#sprintDone").checked=true;}saveDay();};});
+  [["#sprintText","text"],["#sprintBest","best"]].forEach(([s,f])=>{const el=$(s);if(el)el.oninput=()=>{const d=day();d.sprint[f]=el.value;if(f==="text"&&el.value&&!d.sprint.done){d.sprint.done=true;$("#sprintDone").checked=true;}saveDay();};});
   const nt=$("#note");if(nt)nt.oninput=()=>{day().note=nt.value;saveDay();};
   // checks
   const nc=$("#newCheck");if(nc)nc.onclick=()=>{editCheck=key(new Date());render();$("#checkForm")?.scrollIntoView({behavior:"smooth"});};
